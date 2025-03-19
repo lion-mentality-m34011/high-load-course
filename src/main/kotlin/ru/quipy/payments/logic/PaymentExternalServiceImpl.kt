@@ -42,8 +42,7 @@ class PaymentExternalSystemAdapterImpl(
     private val client = OkHttpClient.Builder().build()
 
      private val rateLimiter = SlidingWindowRateLimiter(rateLimitPerSec.toLong(), Duration.ofSeconds(1))
-     //private val semaphore = Semaphore(parallelRequests, true)
-     private val semaphore = FuckingSemaphore(parallelRequests, 55)
+     private val semaphore = Semaphore(parallelRequests, true)
 
     override fun performPaymentAsync(paymentId: UUID, amount: Int, paymentStartedAt: Long, deadline: Long) {
         logger.warn("[$accountName] Submitting payment request for payment $paymentId")
@@ -52,10 +51,10 @@ class PaymentExternalSystemAdapterImpl(
         logger.info("[$accountName] Submit for $paymentId , txId: $transactionId")
 
          if (!rateLimiter.tick()) {
-             throw Exception("aaa")
+             throw Exception("rate limit breached")
          }
-         if (!semaphore.acquire()) {
-             throw Exception("bbb")
+         if (!semaphore.tryAcquire()) {
+             throw Exception("parallel limit breached")
          }
 
         // Вне зависимости от исхода оплаты важно отметить что она была отправлена.
