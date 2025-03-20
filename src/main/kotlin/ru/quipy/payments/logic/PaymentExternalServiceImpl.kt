@@ -50,12 +50,12 @@ class PaymentExternalSystemAdapterImpl(
         val transactionId = UUID.randomUUID()
         logger.info("[$accountName] Submit for $paymentId , txId: $transactionId")
 
-         if (!rateLimiter.tick()) {
-             throw Exception("rate limit breached")
-         }
-         if (!semaphore.tryAcquire()) {
-             throw Exception("parallel limit breached")
-         }
+//         if (!rateLimiter.tick()) {
+//             throw Exception("rate limit breached")
+//         }
+//         if (!semaphore.tryAcquire()) {
+//             throw Exception("parallel limit breached")
+//         }
 
         // Вне зависимости от исхода оплаты важно отметить что она была отправлена.
         // Это требуется сделать ВО ВСЕХ СЛУЧАЯХ, поскольку эта информация используется сервисом тестирования.
@@ -103,7 +103,7 @@ class PaymentExternalSystemAdapterImpl(
                 }
             }
         } finally {
-            semaphore.release()
+            // semaphore.release()
         }
     }
 
