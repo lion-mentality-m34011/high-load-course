@@ -6,11 +6,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
 import org.slf4j.LoggerFactory
-import ru.quipy.common.utils.FixedWindowRateLimiter
-import ru.quipy.common.utils.FuckingSemaphore
-import ru.quipy.common.utils.LeakingBucketRateLimiter
-import ru.quipy.common.utils.SlidingWindowRateLimiter
-import ru.quipy.common.utils.TokenBucketRateLimiter
+import ru.quipy.common.utils.*
 import ru.quipy.core.EventSourcingService
 import ru.quipy.payments.api.PaymentAggregate
 import java.net.SocketTimeoutException
@@ -43,7 +39,7 @@ class PaymentExternalSystemAdapterImpl(
 
      private val rateLimiter = SlidingWindowRateLimiter(rateLimitPerSec.toLong(), Duration.ofSeconds(1))
      //private val semaphore = Semaphore(parallelRequests, true)
-     private val semaphore = FuckingSemaphore(parallelRequests, 55)
+     private val semaphore = BufferedSemaphore(parallelRequests, 55)
 
     override fun performPaymentAsync(paymentId: UUID, amount: Int, paymentStartedAt: Long, deadline: Long) {
         logger.warn("[$accountName] Submitting payment request for payment $paymentId")
