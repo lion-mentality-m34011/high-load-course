@@ -53,7 +53,7 @@ class PaymentExternalSystemAdapterImpl(
 //    }
 
     private var client = OkHttpClient.Builder()
-        .callTimeout(1100, TimeUnit.MILLISECONDS)
+//        .callTimeout(1100, TimeUnit.MILLISECONDS)
         .build()
 
     private val rateLimiter = SlidingWindowRateLimiter(rateLimitPerSec.toLong(), Duration.ofSeconds(1))
@@ -76,13 +76,13 @@ class PaymentExternalSystemAdapterImpl(
             post(emptyBody)
         }.build()
 
-        val maxRetries = 5
-        val retryDelayMillis = 100L
+//        val maxRetries = 5
+//        val retryDelayMillis = 100L
+//
+//        var attempt = 0
+//        var success = false
 
-        var attempt = 0
-        var success = false
-
-        while (attempt <= maxRetries && !success) {
+//        while (attempt <= maxRetries && !success) {
             try {
                 val start = System.nanoTime()
                 client.newCall(request).execute().use { response ->
@@ -100,44 +100,45 @@ class PaymentExternalSystemAdapterImpl(
                     paymentESService.update(paymentId) {
                         it.logProcessing(body.result, now(), transactionId, reason = body.message)
                     }
-                    success = true
+//                    success = true
                 }
             } catch (e: Exception) {
-                attempt++
-                if (attempt >= maxRetries) {
-                    throw e
-                }
-                logger.warn("[$accountName] Retry $attempt/$maxRetries for txId: $transactionId due to ${e.message}")
-                Thread.sleep(retryDelayMillis)
+//                attempt++
+//                if (attempt >= maxRetries) {
+//                    throw e
+//                }
+//                logger.warn("[$accountName] Retry $attempt/$maxRetries for txId: $transactionId due to ${e.message}")
+                logger.warn("[$accountName] for txId: $transactionId due to ${e.message}")
+//                Thread.sleep(retryDelayMillis)
             }
-        }
-        computeQuantiles(responseTimes)
+//        }
+//        computeQuantiles(responseTimes)
     }
 
-    private fun saveToFile() {
-        synchronized(responseTimes) {
-            val file = File("response_times.txt")
-            file.writeText(responseTimes.joinToString(",") + "\n")
-        }
-    }
-
-    fun computeQuantiles(responseTimes: List<Long>) {
-        val snapshot = synchronized(responseTimes) { responseTimes.toList() }
-        if (snapshot.isEmpty()) return
-
-        val sorted = snapshot.sorted()
-        fun quantile(p: Double): Long {
-            val index = ((sorted.size - 1) * p).toInt()
-            return sorted[index]
-        }
-
-        val quantileMap = mapOf(
-            "p90" to quantile(0.90),
-            "p95" to quantile(0.95),
-        )
-        println(quantileMap)
-    }
-
+//    private fun saveToFile() {
+//        synchronized(responseTimes) {
+//            val file = File("response_times.txt")
+//            file.writeText(responseTimes.joinToString(",") + "\n")
+//        }
+//    }
+//
+//    fun computeQuantiles(responseTimes: List<Long>) {
+//        val snapshot = synchronized(responseTimes) { responseTimes.toList() }
+//        if (snapshot.isEmpty()) return
+//
+//        val sorted = snapshot.sorted()
+//        fun quantile(p: Double): Long {
+//            val index = ((sorted.size - 1) * p).toInt()
+//            return sorted[index]
+//        }
+//
+//        val quantileMap = mapOf(
+//            "p90" to quantile(0.90),
+//            "p95" to quantile(0.95),
+//        )
+//        println(quantileMap)
+//    }
+//
 //    fun calculatePercentiles(data: List<Long>, step: Double): List<Double> {
 //        val sortedData = data.sorted()
 //        val percentiles = mutableListOf<Double>()
