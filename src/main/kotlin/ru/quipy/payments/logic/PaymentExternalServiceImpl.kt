@@ -2,6 +2,7 @@ package ru.quipy.payments.logic
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import liquibase.repackaged.org.apache.commons.lang3.ObjectUtils.Null
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
@@ -9,12 +10,17 @@ import org.slf4j.LoggerFactory
 import ru.quipy.common.utils.*
 import ru.quipy.core.EventSourcingService
 import ru.quipy.payments.api.PaymentAggregate
+import java.io.File
 import java.io.InterruptedIOException
 import java.net.SocketTimeoutException
 import java.time.Duration
 import java.util.*
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.Semaphore
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.timerTask
+import kotlin.concurrent.write
 
 
 // Advice: always treat time as a Duration
@@ -38,12 +44,20 @@ class PaymentExternalSystemAdapterImpl(
 
     private val responseTimes = Collections.synchronizedList(mutableListOf<Long>())
 
-    private val client = OkHttpClient.Builder()
-        .callTimeout(1350, TimeUnit.MILLISECONDS)
+    private val timer = Timer()
+
+//    init {
+//        timer.scheduleAtFixedRate(timerTask {
+//            saveToFile()
+//        }, 0, 10000)
+//    }
+
+    private var client = OkHttpClient.Builder()
+        .callTimeout(1100, TimeUnit.MILLISECONDS)
         .build()
 
-     private val rateLimiter = SlidingWindowRateLimiter(rateLimitPerSec.toLong(), Duration.ofSeconds(1))
-     private val semaphore = Semaphore(parallelRequests, true)
+    private val rateLimiter = SlidingWindowRateLimiter(rateLimitPerSec.toLong(), Duration.ofSeconds(1))
+    private val semaphore = Semaphore(parallelRequests, true)
 
     override fun performPaymentAsync(paymentId: UUID, amount: Int, paymentStartedAt: Long, deadline: Long) {
         logger.warn("[$accountName] Submitting payment request for payment $paymentId")
@@ -62,7 +76,7 @@ class PaymentExternalSystemAdapterImpl(
             post(emptyBody)
         }.build()
 
-        val maxRetries = 2
+        val maxRetries = 5
         val retryDelayMillis = 100L
 
         var attempt = 0
@@ -100,6 +114,13 @@ class PaymentExternalSystemAdapterImpl(
         computeQuantiles(responseTimes)
     }
 
+    private fun saveToFile() {
+        synchronized(responseTimes) {
+            val file = File("response_times.txt")
+            file.writeText(responseTimes.joinToString(",") + "\n")
+        }
+    }
+
     fun computeQuantiles(responseTimes: List<Long>) {
         val snapshot = synchronized(responseTimes) { responseTimes.toList() }
         if (snapshot.isEmpty()) return
@@ -116,6 +137,39 @@ class PaymentExternalSystemAdapterImpl(
         )
         println(quantileMap)
     }
+
+//    fun calculatePercentiles(data: List<Long>, step: Double): List<Double> {
+//        val sortedData = data.sorted()
+//        val percentiles = mutableListOf<Double>()
+//
+//        for (i in 0..(1 / step).toInt()) {
+//            val percentileIndex = (i * step * (sortedData.size - 1)).toInt()
+//            percentiles.add(sortedData[percentileIndex].toDouble())
+//        }
+//
+//        return percentiles
+//    }
+//
+//    fun findPercentileDifferenceGreaterThan() {
+//        val snapshot = synchronized(responseTimes) { responseTimes.toList() }
+//        if (snapshot.isEmpty()) return
+//        val percentiles = calculatePercentiles(snapshot, 0.05)
+//
+//        for (i in 1 until percentiles.size) {
+//            val diff = percentiles[i] - percentiles[i - 1]
+//            if (diff > 500) {
+//                println("------------------------------------------------------------------------------------------" + percentiles[i - 1].toString())
+//                clientLock.write {
+//                    client = OkHttpClient.Builder()
+//                        .callTimeout(percentiles[i - 1].toLong(), TimeUnit.MILLISECONDS)
+//                        .build()
+//                }
+//                return
+//            }
+//        }
+//
+//        return
+//    }
 
 
     override fun price() = properties.price
