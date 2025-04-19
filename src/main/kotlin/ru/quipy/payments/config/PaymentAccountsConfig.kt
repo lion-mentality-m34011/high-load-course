@@ -3,7 +3,9 @@ package ru.quipy.payments.config
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import org.apache.coyote.http2.Http2Protocol
 import org.eclipse.jetty.http2.server.HTTP2CServerConnectionFactory
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.web.embedded.jetty.JettyServerCustomizer
 import org.springframework.boot.web.embedded.jetty.JettyServletWebServerFactory
@@ -30,7 +32,8 @@ class PaymentAccountsConfig {
     @Value("\${payment.hostPort}")
     lateinit var paymentProviderHostPort: String
 
-    private val allowedAccounts = setOf("acc-9")
+    private val allowedAccounts = setOf("acc-12")
+    val logger = LoggerFactory.getLogger(PaymentExternalSystemAdapter::class.java)
 
     @Bean
     fun accountAdapters(paymentService: EventSourcingService<UUID, PaymentAggregate, PaymentAggregateState>): List<PaymentExternalSystemAdapter> {
@@ -51,4 +54,28 @@ class PaymentAccountsConfig {
             }.onEach(::println)
             .map { PaymentExternalSystemAdapterImpl(it, paymentService) }
     }
+
+//    @Bean // это для Jetty
+//    fun jettyServerCustomizer(): JettyServletWebServerFactory {
+//        val jettyServletWebServerFactory = JettyServletWebServerFactory()
+//
+//        val c = JettyServerCustomizer {
+//            (it.connectors[0].getConnectionFactory("h2c") as HTTP2CServerConnectionFactory).maxConcurrentStreams = 1_000_000
+//        }
+//
+//        jettyServletWebServerFactory.serverCustomizers.add(c)
+//        return jettyServletWebServerFactory
+//    }
+
+    @Bean
+    fun tomcatConnectorCustomizer(): TomcatConnectorCustomizer {
+        return TomcatConnectorCustomizer {
+            try {
+                (it.protocolHandler.findUpgradeProtocols().get(0) as Http2Protocol).maxConcurrentStreams = 10_000_000
+            } catch (e: Exception) {
+                logger.error("!!! Failed to increase number of http2 streams per connection !!!")
+            }
+        }
+    }
+
 }
